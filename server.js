@@ -49,6 +49,12 @@ async function run() {
     const paymentCollection = client
       .db("creative-agency")
       .collection("payment");
+    const orderCollection = client
+      .db("creative-agency")
+      .collection("order");
+    const reviewCollection = client
+      .db("creative-agency")
+      .collection("review");
 
     // 1.a => get load all service collections
     app.get("/services", async (req, res) => {
@@ -103,6 +109,50 @@ async function run() {
       const result = await paymentCollection.find({}).toArray();
       res.send(result);
     });
+
+
+    // 4.a => get load all order collections
+    app.get("/order", async(req , res)=>{
+      const result = await orderCollection.find({}).toArray();
+      res.send(result)
+    })
+
+
+    // 4.b => get load order collections by id
+    app.get("/order/:id", async(req , res)=>{
+      const id = req.params.id;
+      const filter = {_id:ObjectId(id)}
+      const result = await orderCollection.findOne(filter)
+      res.send(result)
+    })
+
+
+    // 4.c =>  post order collections server to db
+    app.post("/order", async(req , res)=>{
+      const data = req.body;
+      // console.log('body', data)
+      const result = await orderCollection.insertOne(data)
+      res.send(result)
+    })
+
+    // 5.a => get load all review collections
+    app.get("/review", async(req , res)=>{
+      const result = await reviewCollection.find({}).toArray();
+      res.send(result)
+    })
+
+
+    // 5.b => post review server to db
+    app.post("/review", async(req , res)=>{
+      const data = req.body;
+      console.log('data', data)
+      const result = await reviewCollection.insertOne(data)
+      res.send(result)
+    })
+
+
+
+
   } finally {
     // await client.close()
   }
