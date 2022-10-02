@@ -3,22 +3,31 @@ const cors = require("cors");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
-const jwt = require('jsonwebtoken');
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
 
 // middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const verifyJWT = (req, res, next)=>{
+const verifyJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  if(!authHeader){
-    return res.status(401).send({message: 'UnAuthorized'})
+  if (!authHeader) {
+    return res.status(401).send({ message: "UnAuthorized" });
   }
-  
-}
+  const token = authHeader.split(" ")[1];
+  // console.log("token", token);
+
+  jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "forbidden" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
 
 // user: creative-agency
 // pswd: kZcPFMy7eaFZDkX9
@@ -48,19 +57,47 @@ async function run() {
     });
 
     // 1.b => post services server to db
-    app.post("/services", async(req, res)=>{
-        const data = req.body;
-        // console.log('body', data);
-        const result = await serviceCollection.insertOne(data);
-        res.send(result)
-    })
+    app.post("/services", async (req, res) => {
+      const data = req.body;
+      // console.log('body', data);
+      const result = await serviceCollection.insertOne(data);
+      res.send(result);
+    });
 
+    // 1.c => delete services by id
+    app.delete("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {_id:ObjectId(id)}
+      const result = await serviceCollection.deleteOne(filter);
+      res.send(result);
+    });
 
     // 2.a => get load all service collections
-    app.get("/users", async (req, res) => {
+    app.get("/users",  async (req, res) => {
       const result = await userCollection.find({}).toArray();
       res.send(result);
     });
+
+    // 2.b => update every user and giving them jwt token
+    app.put("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const user = req.body;
+      console.log('user', user)
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: user,
+      };
+      const result = await userCollection.updateOne(filter, updateDoc, options);
+
+      // giving every user a jwt token
+      const token = jwt.sign({ email: email }, process.env.TOKEN_SECRET, {
+        expiresIn: "1m",
+      });
+
+      res.send({ result, accessToken: token });
+    });
+
     // 3.a => get load all service collections
     app.get("/payment", async (req, res) => {
       const result = await paymentCollection.find({}).toArray();
