@@ -145,8 +145,17 @@ async function run() {
     // 5.b => post review server to db
     app.post("/review", async(req , res)=>{
       const data = req.body;
-      console.log('data', data)
+      // console.log('data', data)
       const result = await reviewCollection.insertOne(data)
+      res.send(result)
+    })
+
+
+    // 5.c => review deleted by id
+    app.delete("/review/:id", async(req , res)=>{
+      const id = req.params.id;
+      const filter = {_id:ObjectId(id)}
+      const result = await reviewCollection.deleteOne(filter)
       res.send(result)
     })
 
