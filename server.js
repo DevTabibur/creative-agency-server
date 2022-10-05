@@ -179,6 +179,30 @@ async function run() {
       res.send(result);
     });
 
+    // 4.e => patch and store payment id and info
+    app.patch('/order/:id',  async(req, res) =>{
+      const id  = req.params.id;
+      const payment = req.body;
+      const transactionId = payment?.transactionId;
+
+
+      console.log('payment', payment)
+      const filter = {_id: ObjectId(id)};
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment?.transactionID,
+        }
+      }
+
+
+      // get transaction id and service id from "/payment" route
+      const result = await paymentCollection.insertOne(payment);
+      // update info
+      const updateOrder = await orderCollection.updateOne(filter, updatedDoc);
+      res.send(updateOrder);
+    })
+
     // 5.a => get load all review collections
     app.get("/review", async (req, res) => {
       const result = await reviewCollection.find({}).toArray();
