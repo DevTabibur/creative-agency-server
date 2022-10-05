@@ -5,6 +5,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware
 app.use(cors());
@@ -49,12 +50,23 @@ async function run() {
     const paymentCollection = client
       .db("creative-agency")
       .collection("payment");
-    const orderCollection = client
-      .db("creative-agency")
-      .collection("order");
-    const reviewCollection = client
-      .db("creative-agency")
-      .collection("review");
+    const orderCollection = client.db("creative-agency").collection("order");
+    const reviewCollection = client.db("creative-agency").collection("review");
+
+
+    app.post('/create-payment-intent', async(req, res) =>{
+      const service = req.body;
+      const price = service.price;
+      const amount = price*100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount : amount,
+        currency: 'usd',
+        payment_method_types:['card']
+      });
+      res.send({clientSecret: paymentIntent.client_secret})
+    });
+
+
 
     // 1.a => get load all service collections
     app.get("/services", async (req, res) => {
@@ -73,13 +85,13 @@ async function run() {
     // 1.c => delete services by id
     app.delete("/services/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id:ObjectId(id)}
+      const filter = { _id: ObjectId(id) };
       const result = await serviceCollection.deleteOne(filter);
       res.send(result);
     });
 
-    // 2.a => get load all service collections
-    app.get("/users",  async (req, res) => {
+    // 2.a => get load all user collections
+    app.get("/users", async (req, res) => {
       const result = await userCollection.find({}).toArray();
       res.send(result);
     });
@@ -89,7 +101,7 @@ async function run() {
       const email = req.params.email;
       const filter = { email: email };
       const user = req.body;
-      console.log('user', user)
+      // console.log("user", user);
       const options = { upsert: true };
       const updateDoc = {
         $set: user,
@@ -98,10 +110,37 @@ async function run() {
 
       // giving every user a jwt token
       const token = jwt.sign({ email: email }, process.env.TOKEN_SECRET, {
-        expiresIn: "1m",
+        expiresIn: "1h",
       });
 
       res.send({ result, accessToken: token });
+    });
+
+    // 2.c => delete user by id
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await userCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    // 2.d => Check an admin from the user collections
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email: email });
+      const isAdmin = user.role === "admin";
+      res.send({ admin: isAdmin });
+    });
+
+    // 2.e => make an admin from the user collections
+    app.put("/user/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const updateDoc = {
+        $set: { role: "admin" },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
     });
 
     // 3.a => get load all service collections
@@ -110,58 +149,57 @@ async function run() {
       res.send(result);
     });
 
-
     // 4.a => get load all order collections
-    app.get("/order", async(req , res)=>{
+    app.get("/order", async (req, res) => {
       const result = await orderCollection.find({}).toArray();
-      res.send(result)
-    })
-
+      res.send(result);
+    });
 
     // 4.b => get load order collections by id
-    app.get("/order/:id", async(req , res)=>{
+    app.get("/order/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id:ObjectId(id)}
-      const result = await orderCollection.findOne(filter)
-      res.send(result)
-    })
-
+      const filter = { _id: ObjectId(id) };
+      const result = await orderCollection.findOne(filter);
+      res.send(result);
+    });
 
     // 4.c =>  post order collections server to db
-    app.post("/order", async(req , res)=>{
+    app.post("/order", async (req, res) => {
       const data = req.body;
       // console.log('body', data)
-      const result = await orderCollection.insertOne(data)
-      res.send(result)
-    })
+      const result = await orderCollection.insertOne(data);
+      res.send(result);
+    });
+
+    // 4.d => order deleted by id
+    app.delete("/order/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await orderCollection.deleteOne(filter);
+      res.send(result);
+    });
 
     // 5.a => get load all review collections
-    app.get("/review", async(req , res)=>{
+    app.get("/review", async (req, res) => {
       const result = await reviewCollection.find({}).toArray();
-      res.send(result)
-    })
-
+      res.send(result);
+    });
 
     // 5.b => post review server to db
-    app.post("/review", async(req , res)=>{
+    app.post("/review", async (req, res) => {
       const data = req.body;
       // console.log('data', data)
-      const result = await reviewCollection.insertOne(data)
-      res.send(result)
-    })
-
+      const result = await reviewCollection.insertOne(data);
+      res.send(result);
+    });
 
     // 5.c => review deleted by id
-    app.delete("/review/:id", async(req , res)=>{
+    app.delete("/review/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id:ObjectId(id)}
-      const result = await reviewCollection.deleteOne(filter)
-      res.send(result)
-    })
-
-
-
-
+      const filter = { _id: ObjectId(id) };
+      const result = await reviewCollection.deleteOne(filter);
+      res.send(result);
+    });
   } finally {
     // await client.close()
   }
