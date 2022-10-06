@@ -19,7 +19,6 @@ const verifyJWT = (req, res, next) => {
     return res.status(401).send({ message: "UnAuthorized" });
   }
   const token = authHeader.split(" ")[1];
-  // console.log("token", token);
 
   jwt.verify(token, process.env.TOKEN_SECRET, (err, decoded) => {
     if (err) {
@@ -54,7 +53,8 @@ async function run() {
     const reviewCollection = client.db("creative-agency").collection("review");
 
 
-    app.post('/create-payment-intent', async(req, res) =>{
+    // payment post method
+    app.post('/create-payment-intent', verifyJWT, async(req, res) =>{
       const service = req.body;
       const price = service.price;
       const amount = price*100;
@@ -69,7 +69,7 @@ async function run() {
 
 
     // 1.a => get load all service collections
-    app.get("/services", async (req, res) => {
+    app.get("/services",  async (req, res) => {
       const result = await serviceCollection.find({}).toArray();
       res.send(result);
     });
@@ -91,13 +91,13 @@ async function run() {
     });
 
     // 2.a => get load all user collections
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJWT,  async (req, res) => {
       const result = await userCollection.find({}).toArray();
       res.send(result);
     });
 
     // 2.b => update every user and giving them jwt token
-    app.put("/users/:email", async (req, res) => {
+    app.put("/users/:email",  async (req, res) => {
       const email = req.params.email;
       const filter = { email: email };
       const user = req.body;
@@ -117,7 +117,7 @@ async function run() {
     });
 
     // 2.c => delete user by id
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await userCollection.deleteOne(filter);
@@ -125,7 +125,7 @@ async function run() {
     });
 
     // 2.d => Check an admin from the user collections
-    app.get("/admin/:email", async (req, res) => {
+    app.get("/admin/:email", verifyJWT,  async (req, res) => {
       const email = req.params.email;
       const user = await userCollection.findOne({ email: email });
       const isAdmin = user.role === "admin";
@@ -133,7 +133,7 @@ async function run() {
     });
 
     // 2.e => make an admin from the user collections
-    app.put("/user/admin/:email", async (req, res) => {
+    app.put("/user/admin/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const filter = { email: email };
       const updateDoc = {
@@ -144,19 +144,19 @@ async function run() {
     });
 
     // 3.a => get load all service collections
-    app.get("/payment", async (req, res) => {
+    app.get("/payment", verifyJWT, async (req, res) => {
       const result = await paymentCollection.find({}).toArray();
       res.send(result);
     });
 
     // 4.a => get load all order collections
-    app.get("/order", async (req, res) => {
+    app.get("/order", verifyJWT, async (req, res) => {
       const result = await orderCollection.find({}).toArray();
       res.send(result);
     });
 
     // 4.b => get load order collections by id
-    app.get("/order/:id", async (req, res) => {
+    app.get("/order/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await orderCollection.findOne(filter);
@@ -164,7 +164,7 @@ async function run() {
     });
 
     // 4.c =>  post order collections server to db
-    app.post("/order", async (req, res) => {
+    app.post("/order", verifyJWT, async (req, res) => {
       const data = req.body;
       // console.log('body', data)
       const result = await orderCollection.insertOne(data);
@@ -172,7 +172,7 @@ async function run() {
     });
 
     // 4.d => order deleted by id
-    app.delete("/order/:id", async (req, res) => {
+    app.delete("/order/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await orderCollection.deleteOne(filter);
@@ -180,13 +180,9 @@ async function run() {
     });
 
     // 4.e => patch and store payment id and info
-    app.patch('/order/:id',  async(req, res) =>{
+    app.patch('/order/:id', verifyJWT,  async(req, res) =>{
       const id  = req.params.id;
       const payment = req.body;
-      const transactionId = payment?.transactionId;
-
-
-      console.log('payment', payment)
       const filter = {_id: ObjectId(id)};
       const updatedDoc = {
         $set: {
@@ -194,8 +190,6 @@ async function run() {
           transactionId: payment?.transactionID,
         }
       }
-
-
       // get transaction id and service id from "/payment" route
       const result = await paymentCollection.insertOne(payment);
       // update info
@@ -204,13 +198,13 @@ async function run() {
     })
 
     // 5.a => get load all review collections
-    app.get("/review", async (req, res) => {
+    app.get("/review", verifyJWT, async (req, res) => {
       const result = await reviewCollection.find({}).toArray();
       res.send(result);
     });
 
     // 5.b => post review server to db
-    app.post("/review", async (req, res) => {
+    app.post("/review", verifyJWT, async (req, res) => {
       const data = req.body;
       // console.log('data', data)
       const result = await reviewCollection.insertOne(data);
@@ -218,12 +212,14 @@ async function run() {
     });
 
     // 5.c => review deleted by id
-    app.delete("/review/:id", async (req, res) => {
+    app.delete("/review/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await reviewCollection.deleteOne(filter);
       res.send(result);
     });
+
+
   } finally {
     // await client.close()
   }
