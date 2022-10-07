@@ -29,6 +29,7 @@ const verifyJWT = (req, res, next) => {
   });
 };
 
+// for future development i make the mongodb user and password open here. so that I can use it again and again. But real time apps doesn't need to open that. I already used .env folder
 // user: creative-agency
 // pswd: kZcPFMy7eaFZDkX9
 
@@ -52,24 +53,21 @@ async function run() {
     const orderCollection = client.db("creative-agency").collection("order");
     const reviewCollection = client.db("creative-agency").collection("review");
 
-
     // payment post method
-    app.post('/create-payment-intent', verifyJWT, async(req, res) =>{
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const service = req.body;
       const price = service.price;
-      const amount = price*100;
+      const amount = price * 100;
       const paymentIntent = await stripe.paymentIntents.create({
-        amount : amount,
-        currency: 'usd',
-        payment_method_types:['card']
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
       });
-      res.send({clientSecret: paymentIntent.client_secret})
+      res.send({ clientSecret: paymentIntent.client_secret });
     });
 
-
-
     // 1.a => get load all service collections
-    app.get("/services",  async (req, res) => {
+    app.get("/services", async (req, res) => {
       const result = await serviceCollection.find({}).toArray();
       res.send(result);
     });
@@ -90,14 +88,22 @@ async function run() {
       res.send(result);
     });
 
+    // 1.c => get services by id
+    app.get("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await serviceCollection.findOne(filter);
+      res.send(result);
+    });
+
     // 2.a => get load all user collections
-    app.get("/users", verifyJWT,  async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const result = await userCollection.find({}).toArray();
       res.send(result);
     });
 
     // 2.b => update every user and giving them jwt token
-    app.put("/users/:email",  async (req, res) => {
+    app.put("/users/:email", async (req, res) => {
       const email = req.params.email;
       const filter = { email: email };
       const user = req.body;
@@ -125,7 +131,7 @@ async function run() {
     });
 
     // 2.d => Check an admin from the user collections
-    app.get("/admin/:email", verifyJWT,  async (req, res) => {
+    app.get("/admin/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const user = await userCollection.findOne({ email: email });
       const isAdmin = user.role === "admin";
@@ -180,22 +186,22 @@ async function run() {
     });
 
     // 4.e => patch and store payment id and info
-    app.patch('/order/:id', verifyJWT,  async(req, res) =>{
-      const id  = req.params.id;
+    app.patch("/order/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
       const payment = req.body;
-      const filter = {_id: ObjectId(id)};
+      const filter = { _id: ObjectId(id) };
       const updatedDoc = {
         $set: {
           paid: true,
           transactionId: payment?.transactionID,
-        }
-      }
+        },
+      };
       // get transaction id and service id from "/payment" route
       const result = await paymentCollection.insertOne(payment);
       // update info
       const updateOrder = await orderCollection.updateOne(filter, updatedDoc);
       res.send(updateOrder);
-    })
+    });
 
     // 5.a => get load all review collections
     app.get("/review", verifyJWT, async (req, res) => {
@@ -218,8 +224,6 @@ async function run() {
       const result = await reviewCollection.deleteOne(filter);
       res.send(result);
     });
-
-
   } finally {
     // await client.close()
   }
@@ -227,7 +231,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", async (req, res) => {
-  res.send("Heello WORLD");
+  res.send("Hello WORLD This is a CREATIVE AGENCY SERVER");
 });
 
 app.listen(port, (req, res) => {
